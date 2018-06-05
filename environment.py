@@ -5,10 +5,12 @@ import numpy as np
 
 class Env(object):
     def __init__(self):
-        self.env = gym.make('Breakout-v0')
+        self.env = gym.make('Breakout-v4')
         self.observation = self.env.reset()
 
         self.action = 1
+        self.action_n = self.env.action_space.n
+
 
     def _togray(self, observation):
         row, column, channel = observation.shape
@@ -28,6 +30,9 @@ class Env(object):
         elif key == 65363:
             # right
             self.action = 2
+        elif key == 65362:
+            # fire
+            self.action = 1
 
     def key_release(self, key, mod):
         pass
