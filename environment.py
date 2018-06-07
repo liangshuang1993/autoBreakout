@@ -2,23 +2,25 @@ import gym
 import time
 import numpy as np
 
+from controller import DQN
+
 
 class Env(object):
     def __init__(self):
         self.env = gym.make('Breakout-v4')
-        self.observation = self.env.reset()
 
         self.action = 1
         self.action_n = self.env.action_space.n
+        self.controller = DQN(self.action_n)
 
 
     def _togray(self, observation):
         row, column, channel = observation.shape
-        state = np.zeros((row, column))
+        state = np.zeros((row, column, 1))
         for i in range(row):
             for j in range(column):
                 if not observation[i, j] == np.array((1, channel), dtype=np.uint8):
-                    state[i, j] = 1
+                    state[i, j, 0] = 1
         return state
 
 
@@ -41,6 +43,8 @@ class Env(object):
         self.env.reset()
 
     def main_loop(self, max_step=1000):
+
+        observation = self.env.reset()
         for _ in range(max_step):
             time.sleep(0.2)
             self.env.render()
@@ -48,8 +52,6 @@ class Env(object):
             self.env.unwrapped.viewer.window.on_key_release = self.key_release
 
             observation, reward, done, info = self.env.step(self.action) # 2 is right, 3 is left
-            # state = self._togray(observation)
-            print done
 
             # game over or not
             if done:
@@ -62,7 +64,37 @@ class Env(object):
                 if reward:
                     print reward
 
+    def auto_loop(self, max_episode=1000):
+        step = 0
+        for episode in range(max_episode):
+            observation = self.env.reset()
+            observation = self._togray(observation)
+
+            while True:
+                # time.sleep(0.2)
+                self.env.render()
+
+                action = self.controller.choose_action(observation)
+                print 'action: ', action
+
+                observation_next, reward, done, info = self.env.step(action) # 2 is right, 3 is left
+                observation_next = self._togray(observation_next)
+
+                self.controller.store_data(observation, action, reward, observation_next)
+
+                observation = observation_next
+
+                if reward:
+                    print 'reward: ', reward
+
+                # game over or not
+                if done:
+                    print 'game over'
+                    break
+
+                step += 1
+
 
 if __name__ == '__main__':
     game = Env()
-    game.main_loop()
+    game.auto_loop()
