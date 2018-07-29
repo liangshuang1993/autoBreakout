@@ -59,7 +59,7 @@ class DQN(object):
         self.s_next = tf.placeholder(tf.float32, [None, GAME_HEIGHT, GAME_WIDTH, 1],
                                      name='next_state')
         self.r = tf.placeholder(tf.float32, [None, ], name='reward')
-        self.a = tf.placeholder(tf.float32, [None, self.action_n], name='action')
+        self.a = tf.placeholder(tf.int32, [None, self.action_n], name='action')
 
         # evaluation net
         with tf.variable_scope('eval_net'):
@@ -151,12 +151,17 @@ class DQN(object):
             q_target = self.r + self.gamma * tf.reduce_max(self.q_next, axis=1, name='max_q_next')
             self.q_target = tf.stop_gradient(q_target)
         with tf.variable_scope('loss') as scope:
-            self.loss = tf.reduce_mean(tf.squared_difference(self.q_target, self.q_eval))
+            a_indices = tf.stack([tf.range(self.action_n, dtype=tf.int32), 
+                                  tf.cast(tf.argmax(self.a, dimension=1), tf.int32)], axis=1)
+            self.q_eval_wrt_a = tf.gather_nd(params=self.q_eval, indices=a_indices)
+            self.loss = tf.reduce_mean(tf.squared_difference(self.q_target, self.q_eval_wrt_a))
         with tf.variable_scope('train') as scope:
             self._train_op = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
 
     def store_data(self, s, a, r, s_next):
-        self.replay_buffer.append([s, a, r, s_next])
+        a_array = np.zeros((self.action_n), dtype=np.int32)
+        a_array[a] = 1
+        self.replay_buffer.append([s, a_array, r, s_next])
         if len(self.replay_buffer) > self.memory_size:
             self.replay_buffer.popleft()
 
@@ -165,7 +170,8 @@ class DQN(object):
             # update target network
             self.sess.run(self.replace_target_op)
 
-        batch_memory = np.random.sample(self.replay_buffer, self.batch_size)
+        indexes = np.random.choice(len(self.replay_buffer), self.batch_size)
+        batch_memory = [self.replay_buffer[i] for i in indexes]
         state_batch = [data[0] for data in batch_memory]
         action_batch = [data[1] for data in batch_memory]
         reward_batch = [data[2] for data in batch_memory]

@@ -16,11 +16,13 @@ class Env(object):
 
     def _togray(self, observation):
         row, column, channel = observation.shape
-        state = np.zeros((row, column, 1))
+        state = np.ones((row, column, 1))
         for i in range(row):
             for j in range(column):
-                if not observation[i, j] == np.array((1, channel), dtype=np.uint8):
-                    state[i, j, 0] = 1
+                if (observation[i, j] == np.zeros((row, column, channel))).all():
+                    state[i, j, 0] = 0
+                else:
+                    state[i, j, 0] = observation[i, j, 0]
         return state
 
 
@@ -43,8 +45,7 @@ class Env(object):
         self.env.reset()
 
     def main_loop(self, max_step=1000):
-
-        observation = self.env.reset()
+        self.env.reset()
         for _ in range(max_step):
             time.sleep(0.2)
             self.env.render()
@@ -61,19 +62,19 @@ class Env(object):
                 self.reset()
             else:
                 self.action = 0 # reset action
+                print reward
                 if reward:
                     print reward
 
     def auto_loop(self, max_episode=1000):
         step = 0
         for episode in range(max_episode):
+            total_reward = 0
             observation = self.env.reset()
             observation = self._togray(observation)
-
             while True:
                 # time.sleep(0.2)
                 self.env.render()
-
                 action = self.controller.choose_action(observation)
                 print 'action: ', action
 
@@ -81,11 +82,11 @@ class Env(object):
                 observation_next = self._togray(observation_next)
 
                 self.controller.store_data(observation, action, reward, observation_next)
+                self.controller.train_network()
 
                 observation = observation_next
 
-                if reward:
-                    print 'reward: ', reward
+                total_reward += reward
 
                 # game over or not
                 if done:
@@ -93,6 +94,7 @@ class Env(object):
                     break
 
                 step += 1
+            print 'Episode:{}, total_reward: {}'.format(episode, total_reward)
 
 
 if __name__ == '__main__':

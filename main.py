@@ -3,6 +3,6 @@ from controller import *
 
 game = Env()
 
-Controller = DQN()
+Controller = DQN(game.action_n)
 
-game.main_loop()
+game.auto_loop()
