@@ -1,7 +1,7 @@
 import gym
 import time
 import numpy as np
-
+import cv2
 from controller import DQN
 
 
@@ -13,18 +13,11 @@ class Env(object):
         self.action_n = self.env.action_space.n
         self.controller = DQN(self.action_n)
 
-
     def _togray(self, observation):
-        row, column, channel = observation.shape
-        state = np.ones((row, column, 1))
-        for i in range(row):
-            for j in range(column):
-                if (observation[i, j] == np.zeros((row, column, channel))).all():
-                    state[i, j, 0] = 0
-                else:
-                    state[i, j, 0] = observation[i, j, 0]
-        return state
+        state_gray = cv2.cvtColor( cv2.resize(observation, ( 80, 80 ) ) , cv2.COLOR_BGR2GRAY )
 
+        #return observation[56:, 5: original_shape[1]-5, 0].reshape([original_shape[0] - 56, original_shape[1]-10, 1])
+        return state_gray
 
     def key_press(self, key, mod):
         # print key
@@ -66,7 +59,7 @@ class Env(object):
                 if reward:
                     print reward
 
-    def auto_loop(self, max_episode=1000):
+    def auto_loop(self, max_episode=1000000):
         step = 0
         for episode in range(max_episode):
             total_reward = 0
@@ -74,17 +67,21 @@ class Env(object):
             observation = self._togray(observation)
             while True:
                 # time.sleep(0.2)
-                self.env.render()
-                action = self.controller.choose_action(observation)
-                print 'action: ', action
+                self.env.render() 
+                state = np.stack((observation, observation, observation, observation), axis=2)
+
+                action = self.controller.choose_action(state)
+                # print 'action: ', action
 
                 observation_next, reward, done, info = self.env.step(action) # 2 is right, 3 is left
-                observation_next = self._togray(observation_next)
 
-                self.controller.store_data(observation, action, reward, observation_next)
+                observation_next = self._togray(observation_next)
+                next_state = np.append(observation_next.reshape((80, 80, 1)), state[:,:,:3], axis= 2)
+
+                self.controller.store_data(state, action, reward, next_state)
                 self.controller.train_network()
 
-                observation = observation_next
+                state = next_state
 
                 total_reward += reward
 
