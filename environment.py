@@ -4,6 +4,10 @@ import numpy as np
 import cv2
 from controller import DQN
 
+CNN_INPUT_WIDTH = 80
+CNN_INPUT_HEIGHT = 80
+CNN_INPUT_DEPTH = 1
+SERIES_LENGTH = 4
 
 class Env(object):
     def __init__(self):
@@ -14,10 +18,22 @@ class Env(object):
         self.controller = DQN(self.action_n)
 
     def _togray(self, observation):
-        state_gray = cv2.cvtColor( cv2.resize(observation, ( 80, 80 ) ) , cv2.COLOR_BGR2GRAY )
+        height, width, nchannel = observation.shape
 
-        #return observation[56:, 5: original_shape[1]-5, 0].reshape([original_shape[0] - 56, original_shape[1]-10, 1])
-        return state_gray
+        sHeight = int(height * 0.5)
+        sWidth = CNN_INPUT_WIDTH
+
+        state_gray = cv2.cvtColor(observation, cv2.COLOR_BGR2GRAY)
+
+        _, state_binary = cv2.threshold(state_gray, 5, 255, cv2.THRESH_BINARY)
+
+        state_binarySmall = cv2.resize(state_binary, (sWidth, sHeight), interpolation=cv2.INTER_AREA)
+
+        cnn_inputImg = state_binarySmall[25:, :]
+        # rstArray = state_graySmall.reshape(sWidth * sHeight)
+        cnn_inputImg = cnn_inputImg.reshape((CNN_INPUT_WIDTH, CNN_INPUT_HEIGHT))
+
+        return cnn_inputImg
 
     def key_press(self, key, mod):
         # print key
@@ -65,13 +81,13 @@ class Env(object):
             total_reward = 0
             observation = self.env.reset()
             observation = self._togray(observation)
+
             while True:
                 # time.sleep(0.2)
                 self.env.render() 
                 state = np.stack((observation, observation, observation, observation), axis=2)
-
                 action = self.controller.choose_action(state)
-                # print 'action: ', action
+                print 'action: ', action
 
                 observation_next, reward, done, info = self.env.step(action) # 2 is right, 3 is left
 

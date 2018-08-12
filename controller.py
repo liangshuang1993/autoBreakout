@@ -65,42 +65,39 @@ class DQN(object):
         with tf.variable_scope('eval_net'):
             with tf.variable_scope('conv1') as scope:
                 kernel = self._variable_with_weight_decay('weights',
-                                                          shape=[7, 7, 4, 32],
+                                                          shape=[8, 8, 4, 32],
                                                           stddev=5e-2,
                                                           wd=None)
-                conv = tf.nn.conv2d(self.s, kernel, [1, 5, 5, 1], padding='VALID')
+                conv = tf.nn.conv2d(self.s, kernel, [1, 4, 4, 1], padding='SAME')
                 biases = self._variable_on_cpu('biases', [32], tf.constant_initializer(0.0))
                 pre_activation = tf.nn.bias_add(conv, biases)
                 conv1 = tf.nn.relu(pre_activation, name=scope.name)
                 self._activation_summary(conv1)
             # 51 * 39
             pool1 = tf.nn.max_pool(conv1, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],
-                                   padding='VALID', name='pool1')
+                                   padding='SAME', name='pool1')
             # 25 * 20
             with tf.variable_scope('conv2') as scope:
                 kernel = self._variable_with_weight_decay('weights',
-                                                          shape=[5, 5, 32, 64],
+                                                          shape=[4, 4, 32, 64],
                                                           stddev=5e-2,
                                                           wd=None)
-                conv = tf.nn.conv2d(pool1, kernel, [1, 2, 2, 1], padding='VALID')
+                conv = tf.nn.conv2d(pool1, kernel, [1, 2, 2, 1], padding='SAME')
                 biases = self._variable_on_cpu('biases', [64], tf.constant_initializer(0.1))
                 pre_activation = tf.nn.bias_add(conv, biases)
                 conv2 = tf.nn.relu(pre_activation, name=scope.name)
                 self._activation_summary(conv2)
-            # 12 * 10
-            pool2 = tf.nn.max_pool(conv2, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],
-                                   padding='VALID', name='pool2')
 
             with tf.variable_scope('local') as scope:
-                reshape = tf.reshape(pool2, [-1, 64])
-                weights = self._variable_with_weight_decay('weights', shape=[64, 32], stddev=0.04, wd=0.004)
-                biases = self._variable_on_cpu('biases', [32], tf.constant_initializer(0.1))
+                reshape = tf.reshape(conv2, [-1, 1600])
+                weights = self._variable_with_weight_decay('weights', shape=[1600, 512], stddev=0.04, wd=0.004)
+                biases = self._variable_on_cpu('biases', [512], tf.constant_initializer(0.1))
                 local = tf.nn.relu(tf.matmul(reshape, weights) + biases, name=scope.name)
                 self._activation_summary(local)
 
             with tf.variable_scope('q') as scope:
-                weights = self._variable_with_weight_decay('weights', [32, self.action_n],
-                                                           stddev=1/32.0, wd=None)
+                weights = self._variable_with_weight_decay('weights', [512, self.action_n],
+                                                           stddev=1/512.0, wd=None)
                 biases = self._variable_on_cpu('biases', [self.action_n], tf.constant_initializer(0.0))
                 self.q_eval = tf.add(tf.matmul(local, weights), biases, name=scope.name)
                 self._activation_summary(self.q_eval)
@@ -109,40 +106,38 @@ class DQN(object):
         with tf.variable_scope('target_net'):
             with tf.variable_scope('conv1') as scope:
                 kernel = self._variable_with_weight_decay('weights',
-                                                          shape=[7, 7, 4, 32],
+                                                          shape=[8, 8, 4, 32],
                                                           stddev=5e-2,
                                                           wd=None)
-                conv = tf.nn.conv2d(self.s_next, kernel, [1, 5, 5, 1], padding='VALID')
+                conv = tf.nn.conv2d(self.s_next, kernel, [1, 4, 4, 1], padding='SAME')
                 biases = self._variable_on_cpu('biases', [32], tf.constant_initializer(0.0))
                 pre_activation = tf.nn.bias_add(conv, biases)
                 conv1 = tf.nn.relu(pre_activation, name=scope.name)
                 self._activation_summary(conv1)
             pool1 = tf.nn.max_pool(conv1, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],
-                                   padding='VALID', name='pool1')
+                                   padding='SAME', name='pool1')
 
             with tf.variable_scope('conv2') as scope:
                 kernel = self._variable_with_weight_decay('weights',
-                                                          shape=[5, 5, 32, 64],
+                                                          shape=[4, 4, 32, 64],
                                                           stddev=5e-2,
                                                           wd=None)
-                conv = tf.nn.conv2d(pool1, kernel, [1, 2, 2, 1], padding='VALID')
+                conv = tf.nn.conv2d(pool1, kernel, [1, 2, 2, 1], padding='SAME')
                 biases = self._variable_on_cpu('biases', [64], tf.constant_initializer(0.1))
                 pre_activation = tf.nn.bias_add(conv, biases)
                 conv2 = tf.nn.relu(pre_activation, name=scope.name)
                 self._activation_summary(conv2)
-            pool2 = tf.nn.max_pool(conv2, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],
-                                   padding='VALID', name='pool2')
 
             with tf.variable_scope('local') as scope:
-                reshape = tf.reshape(pool2, [-1, 64])
-                weights = self._variable_with_weight_decay('weights', [64, 32], stddev=0.04, wd=0.004)
-                biases = self._variable_on_cpu('biases', [32], tf.constant_initializer(0.1))
+                reshape = tf.reshape(conv2, [-1, 1600])
+                weights = self._variable_with_weight_decay('weights', [1600, 512], stddev=0.04, wd=0.004)
+                biases = self._variable_on_cpu('biases', [512], tf.constant_initializer(0.1))
                 local = tf.nn.relu(tf.matmul(reshape, weights) + biases, name=scope.name)
                 self._activation_summary(local)
 
             with tf.variable_scope('q_next') as scope:
-                weights = self._variable_with_weight_decay('weights', [32, self.action_n],
-                                                           stddev=1/32.0, wd=None)
+                weights = self._variable_with_weight_decay('weights', [512, self.action_n],
+                                                           stddev=1/512.0, wd=None)
                 biases = self._variable_on_cpu('biases', [self.action_n], tf.constant_initializer(0.0))
                 self.q_next = tf.add(tf.matmul(local, weights), biases, name=scope.name)
                 self._activation_summary(self.q_next)
@@ -177,7 +172,7 @@ class DQN(object):
         reward_batch = [data[2] for data in batch_memory]
         state_next_batch = [data[3] for data in batch_memory]
 
-        _, cost = self.sess.run([self._train_op, self.loss],
+        _, cost, q_action = self.sess.run([self._train_op, self.loss, self.q_action],
                                 feed_dict={
                                     self.s: state_batch,
                                     self.a: action_batch,
@@ -189,7 +184,7 @@ class DQN(object):
         self.learn_step_counter += 1
 
     def choose_action(self, observation):
-        observation = observation[np.newaxis, :]
+        observation = observation[np.newaxis, :] # 1 * 80 * 80 * 4
 
         if np.random.uniform() < self.epsilon:
             action_value = self.sess.run(self.q_eval, feed_dict={self.s: observation})
